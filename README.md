@@ -10,6 +10,8 @@ Excel XML code is based on Excel_XML by Oliver Schwarz (http://github.com/oliver
 1. You can create **Bold Rows** - helpful while creating the last row for total or creating a row that is to be highlighted
 2. You can create **Header Rows** - these rows can be used to create column titles in blue background; you can also specify the numbers of cells to be merged to create a column header
 
+Feature extended by Rishi Jasapara
+
 ## How to use it
 
     <?php
