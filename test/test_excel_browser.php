@@ -15,7 +15,15 @@ $data = array(
 );
 
 $excel->initialize();
+
+//Generate header
+$excel->addBlueBoldHeader(array("Export Example"), 3);
+
 foreach($data as $row) {
 	$excel->addRow($row);
 }
+
+//Final Row in Bold
+$exporter->addBoldRow(array("Total", "", "", "", "$100"));
+
 $excel->finalize();
