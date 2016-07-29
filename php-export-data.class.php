@@ -1,6 +1,9 @@
 <?php
 // php-export-data by Eli Dickinson, http://github.com/elidickinson/php-export-data
 
+// Functionality extended by Rishi Jasapara, https://github.com/rishijasapara/php-export-data
+// Original Credit to Eli
+
 /**
  * ExportData is the base class for exporters to specific file formats. See other
  * classes below.
@@ -41,6 +44,14 @@ abstract class ExportData {
 	
 	public function addRow($row) {
 		$this->write($this->generateRow($row));
+	}
+	
+	public function addBoldRow($row) {
+		$this->write($this->generateBoldRow($row));
+	}
+	
+	public function addBlueBoldHeader($row, $mergeColumnCount) {
+		$this->write($this->generateBlueBoldHeaderRow($row, $mergeColumnCount));
 	}
 	
 	public function finalize() {
@@ -167,7 +178,19 @@ class ExportDataExcel extends ExportData {
 		
 		// Set up styles
 		$output .= "<Styles>\n";
-		$output .= "<Style ss:ID=\"sDT\"><NumberFormat ss:Format=\"Short Date\"/></Style>\n";
+		//Set up date format style
+		$output .= "<Style ss:ID=\"sDT\"><NumberFormat ss:Format=\"Short Date\"/></Style>\n";		
+		// Set up bold style
+		$output .= "<Style ss:ID=\"sBold\"><ss:Font ss:Bold=\"1\"/></Style>\n";
+		//Set up header style
+		$output .= "<Style ss:ID=\"sHeaderBlueBold\">
+						<Alignment ss:Horizontal=\"Center\" ss:Vertical=\"Bottom\"/>
+						<Borders/>
+						<Font ss:FontName=\"Arial\" ss:Bold=\"1\"/>
+						<Interior ss:Color=\"#95B3D7\" ss:Pattern=\"Solid\"/>
+						<NumberFormat/>
+						<Protection/>
+					</Style>\n";
 		$output .= "</Styles>\n";
 		
 		// worksheet header
@@ -193,6 +216,26 @@ class ExportDataExcel extends ExportData {
 		$output .= "        <Row>\n";
 		foreach ($row as $k => $v) {
 			$output .= $this->generateCell($v);
+		}
+		$output .= "        </Row>\n";
+		return $output;
+	}
+	
+	function generateBoldRow($row) {
+		$output = '';
+		$output .= "        <Row>\n";
+		foreach ($row as $k => $v) {
+			$output .= $this->generateBoldCell($v);
+		}
+		$output .= "        </Row>\n";
+		return $output;
+	}
+	
+	function generateBlueBoldHeaderRow($row, $mergeColumnCount) {
+		$output = '';
+		$output .= "        <Row>\n";
+		foreach ($row as $k => $v) {
+			$output .= $this->generateBlueBoldHeaderCell($v, $mergeColumnCount);
 		}
 		$output .= "        </Row>\n";
 		return $output;
@@ -228,6 +271,79 @@ class ExportDataExcel extends ExportData {
 		$item = str_replace('&#039;', '&apos;', htmlspecialchars($item, ENT_QUOTES));
 		$output .= "            ";
 		$output .= $style ? "<Cell ss:StyleID=\"$style\">" : "<Cell>";
+		$output .= sprintf("<Data ss:Type=\"%s\">%s</Data>", $type, $item);
+		$output .= "</Cell>\n";
+		
+		return $output;
+	}
+	
+	private function generateBoldCell($item) {
+		$output = '';
+		$style = '';
+		
+		// Tell Excel to treat as a number. Note that Excel only stores roughly 15 digits, so keep 
+		// as text if number is longer than that.
+		if(preg_match("/^-?\d+(?:[.,]\d+)?$/",$item) && (strlen($item) < 15)) {
+			$type = 'Number';
+		}
+		// Sniff for valid dates; should look something like 2010-07-14 or 7/14/2010 etc. Can
+		// also have an optional time after the date.
+		//
+		// Note we want to be very strict in what we consider a date. There is the possibility
+		// of really screwing up the data if we try to reformat a string that was not actually 
+		// intended to represent a date.
+		elseif(preg_match("/^(\d{1,2}|\d{4})[\/\-]\d{1,2}[\/\-](\d{1,2}|\d{4})([^\d].+)?$/",$item) &&
+					($timestamp = strtotime($item)) &&
+					($timestamp > 0) &&
+					($timestamp < strtotime('+500 years'))) {
+			$type = 'DateTime';
+			$item = strftime("%Y-%m-%dT%H:%M:%S",$timestamp);
+			$style = 'sDT'; // defined in header; tells excel to format date for display
+		}
+		else {
+			$type = 'String';
+		}
+				
+		$item = str_replace('&#039;', '&apos;', htmlspecialchars($item, ENT_QUOTES));
+		$output .= "            ";
+		$output .= "<Cell ss:StyleID=\"sBold\">";
+		$output .= sprintf("<Data ss:Type=\"%s\">%s</Data>", $type, $item);
+		$output .= "</Cell>\n";
+		
+		return $output;
+	}
+	
+	private function generateBlueBoldHeaderCell($item, $mergeColumnCount) {
+		$output = '';
+		$style = '';
+		$mergeColumnCount--;
+
+		// Tell Excel to treat as a number. Note that Excel only stores roughly 15 digits, so keep 
+		// as text if number is longer than that.
+		if(preg_match("/^-?\d+(?:[.,]\d+)?$/",$item) && (strlen($item) < 15)) {
+			$type = 'Number';
+		}
+		// Sniff for valid dates; should look something like 2010-07-14 or 7/14/2010 etc. Can
+		// also have an optional time after the date.
+		//
+		// Note we want to be very strict in what we consider a date. There is the possibility
+		// of really screwing up the data if we try to reformat a string that was not actually 
+		// intended to represent a date.
+		elseif(preg_match("/^(\d{1,2}|\d{4})[\/\-]\d{1,2}[\/\-](\d{1,2}|\d{4})([^\d].+)?$/",$item) &&
+					($timestamp = strtotime($item)) &&
+					($timestamp > 0) &&
+					($timestamp < strtotime('+500 years'))) {
+			$type = 'DateTime';
+			$item = strftime("%Y-%m-%dT%H:%M:%S",$timestamp);
+			$style = 'sDT'; // defined in header; tells excel to format date for display
+		}
+		else {
+			$type = 'String';
+		}
+				
+		$item = str_replace('&#039;', '&apos;', htmlspecialchars($item, ENT_QUOTES));
+		$output .= "            ";
+		$output .= "<Cell ss:MergeAcross=\"".$mergeColumnCount."\" ss:StyleID=\"sHeaderBlueBold\">";
 		$output .= sprintf("<Data ss:Type=\"%s\">%s</Data>", $type, $item);
 		$output .= "</Cell>\n";
 		
